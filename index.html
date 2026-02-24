@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Dum-machine v0.06</title>
+    <title>Dum-machine v0.07</title>
     <style>
         body { 
             font-family: -apple-system, system-ui, sans-serif; 
@@ -39,7 +39,7 @@
 
     <h1>Dum-machine</h1>
     <div class="credit">Made by Jeremiah Keller • 2026</div>
-    <div class="version">VERSION 0.06</div>
+    <div class="version">VERSION 0.07</div>
 
     <div class="sequencer-container" id="sequencer"></div>
 
@@ -59,13 +59,14 @@
         let currentStep = 0;
         let nextStepTime = 0;
 
-        // UI Creation
+        // UI Creation with Default Pattern
         sounds.forEach((sound, rowIdx) => {
             const group = document.createElement('div');
             group.className = 'row-group';
             group.innerHTML = `<div class="label">${sound}</div><div class="grid" id="row-${rowIdx}"></div>`;
             container.appendChild(group);
             const grid = group.querySelector('.grid');
+            
             for (let i = 0; i < 16; i++) {
                 const node = document.createElement('div');
                 node.className = 'node';
@@ -73,6 +74,15 @@
                 node.dataset.row = rowIdx;
                 node.dataset.step = i;
                 node.onclick = () => node.classList.toggle('active');
+                
+                // SET DEFAULT PATTERN
+                // Kick 1 (Row 1): Boxes 1 and 5 (index 0 and 4)
+                if (rowIdx === 1 && (i === 0 || i === 4)) node.classList.add('active');
+                // Snare (Row 2): Box 8 (index 7)
+                if (rowIdx === 2 && i === 7) node.classList.add('active');
+                // HiHat (Row 3): Every other box (0, 2, 4, 6...)
+                if (rowIdx === 3 && i % 2 === 0) node.classList.add('active');
+
                 grid.appendChild(node);
             }
         });
@@ -113,8 +123,8 @@
                         n.classList.add('playing');
                         if (n.classList.contains('active')) {
                             const row = parseInt(n.dataset.row);
-                            if (row === 0) playKick(nextStepTime, 0.3); // Ghost Kick
-                            if (row === 1) playKick(nextStepTime, 1.0); // Main Kick
+                            if (row === 0) playKick(nextStepTime, 0.3);
+                            if (row === 1) playKick(nextStepTime, 1.0);
                             if (row === 2) playSnare(nextStepTime);
                             if (row === 3) playHat(nextStepTime, 0.05);
                             if (row === 4) playHat(nextStepTime, 0.2);
