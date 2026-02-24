@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Dum-machine v0.05</title>
+    <title>Dum-machine v0.06</title>
     <style>
         body { 
             font-family: -apple-system, system-ui, sans-serif; 
@@ -11,16 +11,17 @@
             margin: 0; padding: 5px; overflow-x: hidden;
         }
         h1 { font-size: 1.2rem; color: #00ffcc; margin: 5px 0 0 0; }
+        .credit { font-size: 0.65rem; color: #888; margin: 2px 0; }
         .version { font-size: 0.6rem; color: #ffaa00; margin-bottom: 10px; }
         
         .sequencer-container {
-            display: flex; flex-direction: column; gap: 8px;
+            display: flex; flex-direction: column; gap: 6px;
             width: 100%; max-width: 100%; margin: auto;
         }
         .row-group { display: flex; flex-direction: column; width: 100%; }
         .label { 
             font-size: 0.6rem; text-align: left; color: #00ffcc; 
-            padding-left: 2px; margin-bottom: 2px; text-transform: uppercase; 
+            padding-left: 2px; margin-bottom: 1px; text-transform: uppercase; 
         }
         .grid { display: grid; grid-template-columns: repeat(16, 1fr); gap: 2px; width: 100%; }
         .node { aspect-ratio: 1; background: #1a1a1a; border-radius: 2px; border: 1px solid #333; }
@@ -37,8 +38,11 @@
 <body>
 
     <h1>Dum-machine</h1>
-    <div class="version">VERSION 0.05</div>
+    <div class="credit">Made by Jeremiah Keller • 2026</div>
+    <div class="version">VERSION 0.06</div>
+
     <div class="sequencer-container" id="sequencer"></div>
+
     <div class="controls">
         <button id="playBtn">START</button>
         <div class="tempo-area">
@@ -48,7 +52,7 @@
     </div>
 
     <script>
-        const sounds = ['Kick', 'Snare', 'HiHat', 'OpenHH'];
+        const sounds = ['Kick 0 (Quiet)', 'Kick 1', 'Snare', 'HiHat', 'OpenHH'];
         const container = document.getElementById('sequencer');
         let isPlaying = false;
         let tempo = 120;
@@ -75,12 +79,11 @@
 
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
 
-        // REVERTED AUDIO LOGIC (The "2.0" vibe)
-        function playKick(t) {
+        function playKick(t, vol) {
             const o = ctx.createOscillator(); const g = ctx.createGain();
             o.connect(g); g.connect(ctx.destination);
             o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(0.01, t + 0.5);
-            g.gain.setValueAtTime(1, t); g.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
+            g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
             o.start(t); o.stop(t + 0.5);
         }
 
@@ -110,10 +113,11 @@
                         n.classList.add('playing');
                         if (n.classList.contains('active')) {
                             const row = parseInt(n.dataset.row);
-                            if (row === 0) playKick(nextStepTime);
-                            if (row === 1) playSnare(nextStepTime);
-                            if (row === 2) playHat(nextStepTime, 0.05);
-                            if (row === 3) playHat(nextStepTime, 0.2);
+                            if (row === 0) playKick(nextStepTime, 0.3); // Ghost Kick
+                            if (row === 1) playKick(nextStepTime, 1.0); // Main Kick
+                            if (row === 2) playSnare(nextStepTime);
+                            if (row === 3) playHat(nextStepTime, 0.05);
+                            if (row === 4) playHat(nextStepTime, 0.2);
                         }
                     } else {
                         n.classList.remove('playing');
