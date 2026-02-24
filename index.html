@@ -3,57 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Dum-machine | 360 Solutions</title>
+    <title>Dum-machine v0.03</title>
     <style>
         body { 
             font-family: -apple-system, system-ui, sans-serif; 
             background: #000; color: #fff; text-align: center; 
-            margin: 0; padding: 10px; overflow-x: hidden;
+            margin: 0; padding: 5px; overflow-x: hidden;
         }
-        h1 { font-size: 1.5rem; color: #00ffcc; margin: 5px 0; }
-        .subtitle { font-size: 0.8rem; color: #666; margin-bottom: 10px; }
+        h1 { font-size: 1.2rem; color: #00ffcc; margin: 5px 0 0 0; }
+        .version { font-size: 0.6rem; color: #ffaa00; margin-bottom: 10px; }
         
-        /* The Grid Squeeze */
         .sequencer-container {
-            display: flex; flex-direction: column; gap: 2px;
-            width: 100%; max-width: 500px; margin: auto;
+            display: flex; flex-direction: column; gap: 8px;
+            width: 100%; max-width: 100%; margin: auto;
         }
-        .row { display: flex; align-items: center; width: 100%; }
-        .label { width: 50px; font-size: 0.6rem; text-align: left; color: #00ffcc; font-weight: bold; }
+        .row-group { display: flex; flex-direction: column; width: 100%; }
+        
+        /* Label above the row to save horizontal space */
+        .label { 
+            font-size: 0.6rem; text-align: left; color: #00ffcc; 
+            padding-left: 2px; margin-bottom: 2px; text-transform: uppercase; 
+        }
+        
         .grid { 
             display: grid; grid-template-columns: repeat(16, 1fr); 
-            gap: 2px; flex-grow: 1; 
+            gap: 2px; width: 100%;
         }
+        
         .node { 
-            aspect-ratio: 1; background: #222; border-radius: 2px; 
+            aspect-ratio: 1; background: #1a1a1a; border-radius: 2px; 
             border: 1px solid #333;
         }
-        .node.active { background: #00ffcc; box-shadow: 0 0 8px #00ffcc; border-color: #fff; }
-        .node.playing { border-color: #fff; transform: scale(1.1); z-index: 10; }
 
-        /* Every 4th beat visual guide */
-        .node:nth-child(4n+1) { background: #333; }
+        /* HIGHLIGHTS: Beats 1, 5, 9, 13 */
+        .node.highlight {
+            background: #333;
+            border-color: #666;
+        }
+
+        .node.active { 
+            background: #00ffcc !important; 
+            box-shadow: 0 0 5px #00ffcc; 
+            border-color: #fff; 
+        }
+
+        /* The Visual Playhead */
+        .node.playing { border-color: #ffaa00; outline: 1px solid #ffaa00; z-index: 10; }
 
         .controls { 
-            margin-top: 20px; padding: 15px; background: #111; border-radius: 15px; 
+            margin-top: 15px; padding: 15px; background: #111; border-radius: 15px; 
         }
         button { 
-            padding: 15px; width: 100%; max-width: 200px; font-size: 1.2rem;
-            border-radius: 10px; border: none; background: #00ffcc; font-weight: bold;
+            padding: 12px; width: 100%; max-width: 180px; font-size: 1.1rem;
+            border-radius: 10px; border: none; background: #00ffcc; font-weight: bold; color: #000;
         }
-        input[type=range] { width: 100%; margin: 15px 0; accent-color: #00ffcc; }
+        .tempo-area { margin-top: 10px; font-size: 0.9rem; }
+        input[type=range] { width: 100%; margin: 10px 0; accent-color: #00ffcc; }
     </style>
 </head>
 <body>
 
     <h1>Dum-machine</h1>
-    <div class="subtitle">360 Solutions • Vibe v2.0</div>
+    <div class="version">VERSION 0.03</div>
 
     <div class="sequencer-container" id="sequencer"></div>
 
     <div class="controls">
         <button id="playBtn">START</button>
-        <div style="margin-top:10px;">
+        <div class="tempo-area">
             <span id="bpm">120</span> BPM
             <input type="range" id="tempo" min="60" max="200" value="120">
         </div>
@@ -67,16 +84,19 @@
         let currentStep = 0;
         let nextStepTime = 0;
 
-        // Create UI
+        // Create UI - Labels ABOVE Rows
         sounds.forEach((sound, rowIdx) => {
-            const row = document.createElement('div');
-            row.className = 'row';
-            row.innerHTML = `<div class="label">${sound}</div><div class="grid" id="row-${rowIdx}"></div>`;
-            container.appendChild(row);
-            const grid = row.querySelector('.grid');
+            const group = document.createElement('div');
+            group.className = 'row-group';
+            group.innerHTML = `<div class="label">${sound}</div><div class="grid" id="row-${rowIdx}"></div>`;
+            container.appendChild(group);
+            
+            const grid = group.querySelector('.grid');
             for (let i = 0; i < 16; i++) {
                 const node = document.createElement('div');
                 node.className = 'node';
+                // Highlight logic: Beat 1 (0), 5 (4), 9 (8), 13 (12)
+                if (i % 4 === 0) node.classList.add('highlight');
                 node.dataset.row = rowIdx;
                 node.dataset.step = i;
                 node.onclick = () => node.classList.toggle('active');
@@ -86,44 +106,29 @@
 
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
 
-        // --- THE SYNTHS ---
-        const playKick = (time) => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain); gain.connect(ctx.destination);
-            osc.frequency.setValueAtTime(150, time);
-            osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.5);
-            gain.gain.setValueAtTime(1, time);
-            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
-            osc.start(time); osc.stop(time + 0.5);
+        // AUDIO ENGINES
+        const playKick = (t) => {
+            const o = ctx.createOscillator(); const g = ctx.createGain();
+            o.connect(g); g.connect(ctx.destination);
+            o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(0.01, t + 0.5);
+            g.gain.setValueAtTime(1, t); g.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
+            o.start(t); o.stop(t + 0.5);
         };
-
-        const playSnare = (time) => {
-            const bufferSize = ctx.sampleRate * 0.1;
-            const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-            const data = buffer.getChannelData(0);
-            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-            const noise = ctx.createBufferSource();
-            noise.buffer = buffer;
-            const filter = ctx.createBiquadFilter();
-            filter.type = 'highpass'; filter.frequency.value = 1000;
-            const gain = ctx.createGain();
-            noise.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
-            gain.gain.setValueAtTime(0.5, time);
-            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
-            noise.start(time);
+        const playSnare = (t) => {
+            const b = ctx.createBuffer(1, ctx.sampleRate * 0.1, ctx.sampleRate);
+            const d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+            const s = ctx.createBufferSource(); s.buffer = b;
+            const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 1000;
+            const g = ctx.createGain(); s.connect(f); f.connect(g); g.connect(ctx.destination);
+            g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+            s.start(t);
         };
-
-        const playHiHat = (time, duration = 0.05) => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = 'square';
-            const filter = ctx.createBiquadFilter();
-            filter.type = 'highpass'; filter.frequency.value = 8000;
-            osc.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
-            gain.gain.setValueAtTime(0.2, time);
-            gain.gain.exponentialRampToValueAtTime(0.01, time + duration);
-            osc.start(time); osc.stop(time + duration);
+        const playHat = (t, dur) => {
+            const o = ctx.createOscillator(); const g = ctx.createGain(); const f = ctx.createBiquadFilter();
+            o.type = 'square'; f.type = 'highpass'; f.frequency.value = 8000;
+            o.connect(f); f.connect(g); g.connect(ctx.destination);
+            g.gain.setValueAtTime(0.2, t); g.gain.exponentialRampToValueAtTime(0.01, t + dur);
+            o.start(t); o.stop(t + dur);
         };
 
         function scheduler() {
@@ -143,8 +148,8 @@
                 if (node.classList.contains('active')) {
                     if (row === 0) playKick(time);
                     if (row === 1) playSnare(time);
-                    if (row === 2) playHiHat(time, 0.05);
-                    if (row === 3) playHiHat(time, 0.2);
+                    if (row === 2) playHat(time, 0.05);
+                    if (row === 3) playHat(time, 0.2);
                 }
             });
         }
