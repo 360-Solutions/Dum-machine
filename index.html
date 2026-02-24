@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Dum-machine v0.03</title>
+    <title>Dum-machine v0.04</title>
     <style>
         body { 
             font-family: -apple-system, system-ui, sans-serif; 
@@ -19,7 +19,6 @@
         }
         .row-group { display: flex; flex-direction: column; width: 100%; }
         
-        /* Label above the row to save horizontal space */
         .label { 
             font-size: 0.6rem; text-align: left; color: #00ffcc; 
             padding-left: 2px; margin-bottom: 2px; text-transform: uppercase; 
@@ -35,7 +34,6 @@
             border: 1px solid #333;
         }
 
-        /* HIGHLIGHTS: Beats 1, 5, 9, 13 */
         .node.highlight {
             background: #333;
             border-color: #666;
@@ -47,7 +45,6 @@
             border-color: #fff; 
         }
 
-        /* The Visual Playhead */
         .node.playing { border-color: #ffaa00; outline: 1px solid #ffaa00; z-index: 10; }
 
         .controls { 
@@ -64,7 +61,7 @@
 <body>
 
     <h1>Dum-machine</h1>
-    <div class="version">VERSION 0.03</div>
+    <div class="version">VERSION 0.04</div>
 
     <div class="sequencer-container" id="sequencer"></div>
 
@@ -84,7 +81,7 @@
         let currentStep = 0;
         let nextStepTime = 0;
 
-        // Create UI - Labels ABOVE Rows
+        // UI Creation
         sounds.forEach((sound, rowIdx) => {
             const group = document.createElement('div');
             group.className = 'row-group';
@@ -95,7 +92,6 @@
             for (let i = 0; i < 16; i++) {
                 const node = document.createElement('div');
                 node.className = 'node';
-                // Highlight logic: Beat 1 (0), 5 (4), 9 (8), 13 (12)
                 if (i % 4 === 0) node.classList.add('highlight');
                 node.dataset.row = rowIdx;
                 node.dataset.step = i;
@@ -104,32 +100,48 @@
             }
         });
 
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioContext();
 
-        // AUDIO ENGINES
-        const playKick = (t) => {
-            const o = ctx.createOscillator(); const g = ctx.createGain();
-            o.connect(g); g.connect(ctx.destination);
-            o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(0.01, t + 0.5);
-            g.gain.setValueAtTime(1, t); g.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
-            o.start(t); o.stop(t + 0.5);
-        };
-        const playSnare = (t) => {
-            const b = ctx.createBuffer(1, ctx.sampleRate * 0.1, ctx.sampleRate);
-            const d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-            const s = ctx.createBufferSource(); s.buffer = b;
-            const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 1000;
-            const g = ctx.createGain(); s.connect(f); f.connect(g); g.connect(ctx.destination);
-            g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
-            s.start(t);
-        };
-        const playHat = (t, dur) => {
-            const o = ctx.createOscillator(); const g = ctx.createGain(); const f = ctx.createBiquadFilter();
-            o.type = 'square'; f.type = 'highpass'; f.frequency.value = 8000;
-            o.connect(f); f.connect(g); g.connect(ctx.destination);
-            g.gain.setValueAtTime(0.2, t); g.gain.exponentialRampToValueAtTime(0.01, t + dur);
-            o.start(t); o.stop(t + dur);
-        };
+        // --- IMPROVED SOUND ENGINES ---
+        function playKick(time) {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.frequency.setValueAtTime(150, time);
+            osc.frequency.exponentialRampToValueAtTime(0.001, time + 0.5);
+            gain.gain.setValueAtTime(1, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.5);
+            osc.start(time); osc.stop(time + 0.5);
+        }
+
+        function playSnare(time) {
+            const bufferSize = ctx.sampleRate * 0.1;
+            const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+            const source = ctx.createBufferSource();
+            source.buffer = buffer;
+            const filter = ctx.createBiquadFilter();
+            filter.type = 'highpass'; filter.frequency.value = 1500;
+            const gain = ctx.createGain();
+            source.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+            gain.gain.setValueAtTime(0.4, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+            source.start(time);
+        }
+
+        function playHat(time, duration) {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            const filter = ctx.createBiquadFilter();
+            osc.type = 'square';
+            filter.type = 'highpass'; filter.frequency.value = 7000;
+            osc.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+            gain.gain.setValueAtTime(0.2, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + duration);
+            osc.start(time); osc.stop(time + duration);
+        }
 
         function scheduler() {
             while (nextStepTime < ctx.currentTime + 0.1) {
@@ -141,24 +153,29 @@
         }
 
         function playStep(step, time) {
-            document.querySelectorAll('.node').forEach(n => n.classList.remove('playing'));
-            sounds.forEach((_, row) => {
-                const node = document.querySelector(`.node[data-row="${row}"][data-step="${step}"]`);
+            // Visual Update
+            const allNodes = document.querySelectorAll('.node');
+            allNodes.forEach(n => n.classList.remove('playing'));
+            
+            sounds.forEach((_, rowIdx) => {
+                const node = document.querySelector(`.node[data-row="${rowIdx}"][data-step="${step}"]`);
                 node.classList.add('playing');
                 if (node.classList.contains('active')) {
-                    if (row === 0) playKick(time);
-                    if (row === 1) playSnare(time);
-                    if (row === 2) playHat(time, 0.05);
-                    if (row === 3) playHat(time, 0.2);
+                    if (rowIdx === 0) playKick(time);
+                    if (rowIdx === 1) playSnare(time);
+                    if (rowIdx === 2) playHat(time, 0.05);
+                    if (rowIdx === 3) playHat(time, 0.15);
                 }
             });
         }
 
         document.getElementById('playBtn').onclick = () => {
             if (ctx.state === 'suspended') ctx.resume();
+            
             isPlaying = !isPlaying;
             if (isPlaying) {
                 nextStepTime = ctx.currentTime;
+                currentStep = 0;
                 scheduler();
                 document.getElementById('playBtn').innerText = "STOP";
                 document.getElementById('playBtn').style.background = "#ff4444";
