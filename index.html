@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Dum-machine v0.07</title>
+    <title>Dum-machine v0.08</title>
     <style>
         body { 
             font-family: -apple-system, system-ui, sans-serif; 
@@ -39,9 +39,9 @@
 
     <h1>Dum-machine</h1>
     <div class="credit">Made by Jeremiah Keller • 2026</div>
-    <div class="version">VERSION 0.07</div>
+    <div class="version">VERSION 0.08</div>
 
-    <div class="sequencer-container" id="sequencer"></div>
+    <div id="sequencer" class="sequencer-container"></div>
 
     <div class="controls">
         <button id="playBtn">START</button>
@@ -59,7 +59,7 @@
         let currentStep = 0;
         let nextStepTime = 0;
 
-        // UI Creation with Default Pattern
+        // UI Creation with Corrected Default Pattern
         sounds.forEach((sound, rowIdx) => {
             const group = document.createElement('div');
             group.className = 'row-group';
@@ -75,12 +75,12 @@
                 node.dataset.step = i;
                 node.onclick = () => node.classList.toggle('active');
                 
-                // SET DEFAULT PATTERN
-                // Kick 1 (Row 1): Boxes 1 and 5 (index 0 and 4)
+                // --- DEFAULT PATTERN ---
+                // Kick 1: Boxes 1 and 5
                 if (rowIdx === 1 && (i === 0 || i === 4)) node.classList.add('active');
-                // Snare (Row 2): Box 8 (index 7)
-                if (rowIdx === 2 && i === 7) node.classList.add('active');
-                // HiHat (Row 3): Every other box (0, 2, 4, 6...)
+                // Snare: Box 9 (index 8)
+                if (rowIdx === 2 && i === 8) node.classList.add('active');
+                // HiHat: Every other beat
                 if (rowIdx === 3 && i % 2 === 0) node.classList.add('active');
 
                 grid.appendChild(node);
@@ -117,21 +117,19 @@
 
         function scheduler() {
             while (nextStepTime < ctx.currentTime + 0.1) {
-                const stepNodes = document.querySelectorAll('.node');
-                stepNodes.forEach(n => {
+                const nodes = document.querySelectorAll('.node');
+                nodes.forEach(n => {
                     if (parseInt(n.dataset.step) === currentStep) {
                         n.classList.add('playing');
                         if (n.classList.contains('active')) {
-                            const row = parseInt(n.dataset.row);
-                            if (row === 0) playKick(nextStepTime, 0.3);
-                            if (row === 1) playKick(nextStepTime, 1.0);
-                            if (row === 2) playSnare(nextStepTime);
-                            if (row === 3) playHat(nextStepTime, 0.05);
-                            if (row === 4) playHat(nextStepTime, 0.2);
+                            const r = parseInt(n.dataset.row);
+                            if (r === 0) playKick(nextStepTime, 0.3);
+                            if (r === 1) playKick(nextStepTime, 1.0);
+                            if (r === 2) playSnare(nextStepTime);
+                            if (r === 3) playHat(nextStepTime, 0.05);
+                            if (r === 4) playHat(nextStepTime, 0.2);
                         }
-                    } else {
-                        n.classList.remove('playing');
-                    }
+                    } else { n.classList.remove('playing'); }
                 });
                 nextStepTime += (60 / tempo) / 4;
                 currentStep = (currentStep + 1) % 16;
