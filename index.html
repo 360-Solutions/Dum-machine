@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Dum-machine v0.04</title>
+    <title>Dum-machine v0.05</title>
     <style>
         body { 
             font-family: -apple-system, system-ui, sans-serif; 
@@ -18,42 +18,18 @@
             width: 100%; max-width: 100%; margin: auto;
         }
         .row-group { display: flex; flex-direction: column; width: 100%; }
-        
         .label { 
             font-size: 0.6rem; text-align: left; color: #00ffcc; 
             padding-left: 2px; margin-bottom: 2px; text-transform: uppercase; 
         }
-        
-        .grid { 
-            display: grid; grid-template-columns: repeat(16, 1fr); 
-            gap: 2px; width: 100%;
-        }
-        
-        .node { 
-            aspect-ratio: 1; background: #1a1a1a; border-radius: 2px; 
-            border: 1px solid #333;
-        }
-
-        .node.highlight {
-            background: #333;
-            border-color: #666;
-        }
-
-        .node.active { 
-            background: #00ffcc !important; 
-            box-shadow: 0 0 5px #00ffcc; 
-            border-color: #fff; 
-        }
-
+        .grid { display: grid; grid-template-columns: repeat(16, 1fr); gap: 2px; width: 100%; }
+        .node { aspect-ratio: 1; background: #1a1a1a; border-radius: 2px; border: 1px solid #333; }
+        .node.highlight { background: #333; border-color: #666; }
+        .node.active { background: #00ffcc !important; box-shadow: 0 0 5px #00ffcc; border-color: #fff; }
         .node.playing { border-color: #ffaa00; outline: 1px solid #ffaa00; z-index: 10; }
 
-        .controls { 
-            margin-top: 15px; padding: 15px; background: #111; border-radius: 15px; 
-        }
-        button { 
-            padding: 12px; width: 100%; max-width: 180px; font-size: 1.1rem;
-            border-radius: 10px; border: none; background: #00ffcc; font-weight: bold; color: #000;
-        }
+        .controls { margin-top: 15px; padding: 15px; background: #111; border-radius: 15px; }
+        button { padding: 12px; width: 100%; max-width: 180px; font-size: 1.1rem; border-radius: 10px; border: none; background: #00ffcc; font-weight: bold; color: #000; }
         .tempo-area { margin-top: 10px; font-size: 0.9rem; }
         input[type=range] { width: 100%; margin: 10px 0; accent-color: #00ffcc; }
     </style>
@@ -61,10 +37,8 @@
 <body>
 
     <h1>Dum-machine</h1>
-    <div class="version">VERSION 0.04</div>
-
+    <div class="version">VERSION 0.05</div>
     <div class="sequencer-container" id="sequencer"></div>
-
     <div class="controls">
         <button id="playBtn">START</button>
         <div class="tempo-area">
@@ -87,7 +61,6 @@
             group.className = 'row-group';
             group.innerHTML = `<div class="label">${sound}</div><div class="grid" id="row-${rowIdx}"></div>`;
             container.appendChild(group);
-            
             const grid = group.querySelector('.grid');
             for (let i = 0; i < 16; i++) {
                 const node = document.createElement('div');
@@ -100,82 +73,63 @@
             }
         });
 
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        const ctx = new AudioContext();
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
 
-        // --- IMPROVED SOUND ENGINES ---
-        function playKick(time) {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain); gain.connect(ctx.destination);
-            osc.frequency.setValueAtTime(150, time);
-            osc.frequency.exponentialRampToValueAtTime(0.001, time + 0.5);
-            gain.gain.setValueAtTime(1, time);
-            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.5);
-            osc.start(time); osc.stop(time + 0.5);
+        // REVERTED AUDIO LOGIC (The "2.0" vibe)
+        function playKick(t) {
+            const o = ctx.createOscillator(); const g = ctx.createGain();
+            o.connect(g); g.connect(ctx.destination);
+            o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(0.01, t + 0.5);
+            g.gain.setValueAtTime(1, t); g.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
+            o.start(t); o.stop(t + 0.5);
         }
 
-        function playSnare(time) {
-            const bufferSize = ctx.sampleRate * 0.1;
-            const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-            const data = buffer.getChannelData(0);
-            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-            const source = ctx.createBufferSource();
-            source.buffer = buffer;
-            const filter = ctx.createBiquadFilter();
-            filter.type = 'highpass'; filter.frequency.value = 1500;
-            const gain = ctx.createGain();
-            source.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
-            gain.gain.setValueAtTime(0.4, time);
-            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
-            source.start(time);
+        function playSnare(t) {
+            const b = ctx.createBuffer(1, ctx.sampleRate * 0.1, ctx.sampleRate);
+            const d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+            const s = ctx.createBufferSource(); s.buffer = b;
+            const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 1000;
+            const g = ctx.createGain(); s.connect(f); f.connect(g); g.connect(ctx.destination);
+            g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+            s.start(t);
         }
 
-        function playHat(time, duration) {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            const filter = ctx.createBiquadFilter();
-            osc.type = 'square';
-            filter.type = 'highpass'; filter.frequency.value = 7000;
-            osc.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
-            gain.gain.setValueAtTime(0.2, time);
-            gain.gain.exponentialRampToValueAtTime(0.01, time + duration);
-            osc.start(time); osc.stop(time + duration);
+        function playHat(t, dur) {
+            const o = ctx.createOscillator(); const g = ctx.createGain(); const f = ctx.createBiquadFilter();
+            o.type = 'square'; f.type = 'highpass'; f.frequency.value = 8000;
+            o.connect(f); f.connect(g); g.connect(ctx.destination);
+            g.gain.setValueAtTime(0.2, t); g.gain.exponentialRampToValueAtTime(0.01, t + dur);
+            o.start(t); o.stop(t + dur);
         }
 
         function scheduler() {
             while (nextStepTime < ctx.currentTime + 0.1) {
-                playStep(currentStep, nextStepTime);
+                const stepNodes = document.querySelectorAll('.node');
+                stepNodes.forEach(n => {
+                    if (parseInt(n.dataset.step) === currentStep) {
+                        n.classList.add('playing');
+                        if (n.classList.contains('active')) {
+                            const row = parseInt(n.dataset.row);
+                            if (row === 0) playKick(nextStepTime);
+                            if (row === 1) playSnare(nextStepTime);
+                            if (row === 2) playHat(nextStepTime, 0.05);
+                            if (row === 3) playHat(nextStepTime, 0.2);
+                        }
+                    } else {
+                        n.classList.remove('playing');
+                    }
+                });
                 nextStepTime += (60 / tempo) / 4;
                 currentStep = (currentStep + 1) % 16;
             }
             if (isPlaying) requestAnimationFrame(scheduler);
         }
 
-        function playStep(step, time) {
-            // Visual Update
-            const allNodes = document.querySelectorAll('.node');
-            allNodes.forEach(n => n.classList.remove('playing'));
-            
-            sounds.forEach((_, rowIdx) => {
-                const node = document.querySelector(`.node[data-row="${rowIdx}"][data-step="${step}"]`);
-                node.classList.add('playing');
-                if (node.classList.contains('active')) {
-                    if (rowIdx === 0) playKick(time);
-                    if (rowIdx === 1) playSnare(time);
-                    if (rowIdx === 2) playHat(time, 0.05);
-                    if (rowIdx === 3) playHat(time, 0.15);
-                }
-            });
-        }
-
         document.getElementById('playBtn').onclick = () => {
             if (ctx.state === 'suspended') ctx.resume();
-            
             isPlaying = !isPlaying;
             if (isPlaying) {
                 nextStepTime = ctx.currentTime;
-                currentStep = 0;
                 scheduler();
                 document.getElementById('playBtn').innerText = "STOP";
                 document.getElementById('playBtn').style.background = "#ff4444";
